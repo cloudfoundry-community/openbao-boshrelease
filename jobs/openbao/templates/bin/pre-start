@@ -1,0 +1,39 @@
+#!/bin/bash
+set -eu
+
+JOB_DIR=/var/vcap/jobs/openbao
+STORE_DIR=/var/vcap/store/openbao
+DATA_DIR=/var/vcap/data/openbao
+
+# Create required directories
+mkdir -p ${STORE_DIR}/raft ${DATA_DIR}/tmp
+chown -R vcap:vcap ${STORE_DIR} ${DATA_DIR}
+
+# Set capabilities on the bao binary
+bin=$(readlink -nf /var/vcap/packages/openbao/bin/bao)
+setcap cap_ipc_lock=+ep         $bin
+setcap cap_net_bind_service=+ep $bin
+
+# Runtime mlock detection
+if chpst -u vcap:vcap /var/vcap/packages/openbao/bin/canimlock; then
+  sed -i -e 's/^disable_mlock/#disable_mlock/' \
+    ${JOB_DIR}/config/openbao.hcl
+else
+  sed -i -e 's/^#disable_mlock/disable_mlock/' \
+    ${JOB_DIR}/config/openbao.hcl
+fi
+
+# TLS certificate handling — check for vault certificates
+if ! (openssl x509 -noout -in ${JOB_DIR}/tls/vault/cert.pem 2>/dev/null &&
+      openssl rsa  -noout -in ${JOB_DIR}/tls/vault/key.pem 2>/dev/null); then
+  /var/vcap/packages/certifier/bin/certify ${JOB_DIR}/tls/vault/
+fi
+
+# Check for peer certificates
+if ! (openssl x509 -noout -in ${JOB_DIR}/tls/peer/ca.pem 2>/dev/null   &&
+      openssl x509 -noout -in ${JOB_DIR}/tls/peer/cert.pem 2>/dev/null &&
+      openssl rsa  -noout -in ${JOB_DIR}/tls/peer/key.pem 2>/dev/null); then
+  /var/vcap/packages/certifier/bin/certify ${JOB_DIR}/tls/peer/
+fi
+
+exit 0

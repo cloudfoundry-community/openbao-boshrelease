@@ -1,0 +1,19 @@
+processes:
+- name: openbao
+  executable: /var/vcap/packages/openbao/bin/bao
+  args:
+  - server
+  - -config=/var/vcap/jobs/openbao/config/openbao.hcl
+  env:
+    BAO_LOG_LEVEL: <%= p('openbao.log_level') %>
+  limits:
+    open_files: 65536
+  ephemeral_disk: true
+  persistent_disk: true
+  unsafe:
+    privileged: true
+  capabilities:
+  - NET_BIND_SERVICE
+  - IPC_LOCK
+  hooks:
+    pre_start: /var/vcap/jobs/openbao/bin/pre-start

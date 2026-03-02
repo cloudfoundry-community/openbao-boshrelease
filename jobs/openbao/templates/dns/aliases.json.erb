@@ -1,0 +1,5 @@
+<%=
+domain = spec.id + ".openbao.internal"
+aliases = { domain => [ spec.address ] }
+JSON.dump(aliases)
+%>

@@ -1,0 +1,5 @@
+check process openbao
+  with pidfile /var/vcap/sys/run/bpm/openbao/openbao.pid
+  start program "/var/vcap/jobs/bpm/bin/bpm start openbao"
+  stop program "/var/vcap/jobs/bpm/bin/bpm stop openbao"
+  group vcap

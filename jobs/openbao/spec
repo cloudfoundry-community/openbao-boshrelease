@@ -1,0 +1,77 @@
+---
+name: openbao
+packages:
+  - openbao
+  - certifier
+
+templates:
+  bin/pre-start: bin/pre-start
+  config/bpm.yml: config/bpm.yml
+  config/openbao.hcl: config/openbao.hcl
+
+  tls/vault/cert.pem: tls/vault/cert.pem
+  tls/vault/key.pem: tls/vault/key.pem
+
+  tls/peer/ca.pem: tls/peer/ca.pem
+  tls/peer/cert.pem: tls/peer/cert.pem
+  tls/peer/key.pem: tls/peer/key.pem
+
+  dns/aliases.json.erb: dns/aliases.json
+
+provides:
+  - name: openbao
+    type: cluster
+
+consumes:
+  - name: openbao
+    type: cluster
+
+properties:
+  openbao.port:
+    description: TCP port to bind OpenBao on.
+    default: 443
+
+  openbao.tls.certificate:
+    description: TLS certificate for securing communication with clients.
+
+  openbao.tls.key:
+    description: TLS private key for securing communication with clients.
+
+  openbao.peer.tls.ca:
+    description: |
+      TLS CA certificate for verifying peer-to-peer Raft communication.
+      If not provided, a self-signed certificate will be automatically generated.
+
+  openbao.peer.tls.certificate:
+    description: |
+      TLS certificate for peer-to-peer Raft communication.
+      If not provided, a self-signed certificate will be automatically generated.
+
+  openbao.peer.tls.key:
+    description: |
+      TLS private key for peer-to-peer Raft communication.
+      If not provided, a self-signed certificate will be automatically generated.
+
+  openbao.peer.tls.verify:
+    description: Verify the TLS certificates presented by Raft peers.
+    default: true
+
+  openbao.peer.tls.use_self_signed_certs:
+    description: Indicate whether we generate self-signed peer certificates.
+    default: false
+
+  openbao.ui:
+    description: If set to true, the OpenBao UI will be enabled.
+    default: false
+
+  openbao.log_level:
+    description: "Log level: trace, debug, info, warn, error."
+    default: "info"
+
+  openbao.default_lease_ttl:
+    description: Default lease TTL for tokens and secrets.
+    default: "768h"
+
+  openbao.max_lease_ttl:
+    description: Maximum lease TTL for tokens and secrets.
+    default: "768h"
