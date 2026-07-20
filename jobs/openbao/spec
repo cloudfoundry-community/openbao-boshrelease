@@ -56,6 +56,18 @@ properties:
     description: Indicate whether we generate self-signed peer certificates.
     default: false
 
+  openbao.peer.tls.servername:
+    description: |
+      TLS server name presented when verifying the peer (leader) certificate
+      during Raft retry_join. It must match a SAN in the peer certificate,
+      since leader_api_addr uses per-instance BOSH-DNS names or IPs that the
+      shared peer certificate can never carry. The kit generates peer certs
+      with the SAN "openbao_raft_peer", which is the default. Blocs whose
+      already-deployed peer certificate carries a different SAN (for example
+      the legacy "openbao.bosh") must override this to match that SAN, or
+      rotate the peer certificate so it carries "openbao_raft_peer".
+    default: "openbao_raft_peer"
+
   openbao.ui:
     description: If set to true, the OpenBao UI will be enabled.
     default: false
