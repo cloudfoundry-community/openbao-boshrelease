@@ -10,6 +10,12 @@
       []
     end
   scheme = 'https'
+
+  # The persisted raft voter list names this node by node_id. spec.id changes
+  # whenever create-env recreates the VM, so it can only be a default; pin
+  # openbao.raft.node_id to survive VM recreation.
+  node_id = p('openbao.raft.node_id', '')
+  node_id = spec.id if node_id.empty?
 -%>
 
 #disable_mlock = 1
@@ -30,7 +36,7 @@ listener "tcp" {
 
 storage "raft" {
   path    = "/var/vcap/store/openbao/raft"
-  node_id = "<%= spec.id %>"
+  node_id = "<%= node_id %>"
 
 <% cluster_ips.each do |ip| -%>
 <% next if ip == spec.ip -%>

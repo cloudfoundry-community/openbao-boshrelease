@@ -173,8 +173,25 @@ check(failures, 'create-env render has no retry_join stanzas') do
   create_env_out.is_a?(String) && !create_env_out.include?('retry_join')
 end
 
+# --- raft node_id stability ---------------------------------------------------
+#
+# node_id defaults to the BOSH instance id, but a create-env VM recreate
+# assigns a NEW instance id: the persisted raft voter list still names only
+# the old id, so the node unseals yet can never win an election again. The
+# openbao.raft.node_id property lets such deployments pin a stable id.
+
+check(failures, 'node_id defaults to the BOSH instance id') do
+  out.include?('node_id = "node-1"')
+end
+
+pinned = render_with(BASE_PROPS.merge('openbao.raft.node_id' => 'mgmt-director-openbao'))
+check(failures, 'node_id is pinned by openbao.raft.node_id when set') do
+  pinned.include?('node_id = "mgmt-director-openbao"') &&
+    !pinned.include?('node_id = "node-1"')
+end
+
 if failures.empty?
-  puts "\nAll 6 checks passed."
+  puts "\nAll 8 checks passed."
   exit 0
 else
   warn "\nFAILED (#{failures.length}): #{failures.join('; ')}"

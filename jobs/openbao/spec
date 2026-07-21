@@ -68,6 +68,18 @@ properties:
       rotate the peer certificate so it carries "openbao_raft_peer".
     default: "openbao_raft_peer"
 
+  openbao.raft.node_id:
+    description: |
+      Stable Raft node_id for this instance. Defaults to the BOSH instance
+      id (spec.id). That default is only safe for director-managed
+      deployments: a `bosh create-env` VM recreate assigns a NEW instance
+      id, orphaning the persisted Raft voter list, so the node unseals but
+      can never win an election again (reads work, writes fail). create-env
+      deployments should pin this to a value that survives VM recreation,
+      e.g. "<deployment>-openbao". Changing it on a node with existing Raft
+      data requires a peers.json recovery election override.
+    default: ""
+
   openbao.ui:
     description: If set to true, the OpenBao UI will be enabled.
     default: false
