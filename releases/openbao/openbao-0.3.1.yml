@@ -1,0 +1,24 @@
+name: openbao
+version: 0.3.1
+commit_hash: 6bf147d
+uncommitted_changes: false
+jobs:
+- name: openbao
+  version: c2d81b8f6a260c7be13501c7bcc6d11b0ae44acc37f3bdf01997fd9ac0f69eb5
+  fingerprint: c2d81b8f6a260c7be13501c7bcc6d11b0ae44acc37f3bdf01997fd9ac0f69eb5
+  sha1: sha256:b7b34a0248a386a2e4989ec34dc8f56cf35cc7399429e1a8fa7d149584ae4ff9
+  packages:
+  - openbao
+  - certifier
+packages:
+- name: certifier
+  version: 0632c1caed5b6b41fe16e5ebd9aa100908f21ced4910104349ff82d57a86dd18
+  fingerprint: 0632c1caed5b6b41fe16e5ebd9aa100908f21ced4910104349ff82d57a86dd18
+  sha1: sha256:61129448e3b9defa5eaf4d35b686c86c95e83fd6b598b2adbdc641c1f9b148b7
+  dependencies: []
+- name: openbao
+  version: 753f5771b12ceae4a1b92782cc3c0b335d7ff61d8a74ffaaabc3fd016dd1a708
+  fingerprint: 753f5771b12ceae4a1b92782cc3c0b335d7ff61d8a74ffaaabc3fd016dd1a708
+  sha1: sha256:8ebe3c863deef555d8d77c7a203066d91a7a86763778e97f9fbdbe8076a8afa0
+  dependencies: []
+no_compression: false
