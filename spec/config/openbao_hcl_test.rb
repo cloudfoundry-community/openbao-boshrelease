@@ -72,6 +72,12 @@ class RenderContext
   end
 end
 
+# bosh create-env renders with a context that has no link() helper at all;
+# calling it raises NoMethodError. Mirror that by undefining link.
+class NoLinkContext < RenderContext
+  undef_method :link
+end
+
 # --- fixture: a 3-node cluster with DNS-style peer addresses -----------------
 
 def render_with(properties)
@@ -87,6 +93,15 @@ def render_with(properties)
       )
     },
     spec: SpecStub.new(ip: 'q1.openbao.net.deployment.bosh', id: 'node-1')
+  )
+  ctx.render(TEMPLATE)
+end
+
+def render_create_env(properties)
+  ctx = NoLinkContext.new(
+    properties: properties,
+    links: {},
+    spec: SpecStub.new(ip: '10.0.0.4', id: '69cf047a-d6a6-445d-6151-855a9d66cfc1')
   )
   ctx.render(TEMPLATE)
 end
@@ -136,8 +151,30 @@ check(failures, 'servername is driven by the property (legacy override)') do
     !legacy.include?('"openbao_raft_peer"')
 end
 
+# --- create-env rendering (no link support) ----------------------------------
+#
+# bosh create-env has no link resolver: link() does not exist in its render
+# context. A colocated single-node openbao (BOSH director kit) is deployed
+# exactly that way and has no peers to join, so the template must degrade to
+# an empty peer list instead of failing the whole create-env.
+
+create_env_out =
+  begin
+    render_create_env(BASE_PROPS)
+  rescue StandardError, NameError => e
+    e
+  end
+
+check(failures, 'renders under create-env (no link() in context)') do
+  create_env_out.is_a?(String)
+end
+
+check(failures, 'create-env render has no retry_join stanzas') do
+  create_env_out.is_a?(String) && !create_env_out.include?('retry_join')
+end
+
 if failures.empty?
-  puts "\nAll #{3 + 1} checks passed."
+  puts "\nAll 6 checks passed."
   exit 0
 else
   warn "\nFAILED (#{failures.length}): #{failures.join('; ')}"

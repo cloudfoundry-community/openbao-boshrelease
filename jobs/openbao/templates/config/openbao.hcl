@@ -1,5 +1,14 @@
 <%
-  cluster_ips = link('openbao').instances.map { |i| i.address }
+  # bosh create-env renders without link support (NoMethodError on `link`);
+  # a colocated single-node openbao has no raft peers to join, so degrade to
+  # an empty peer list there. Director-managed deployments still resolve the
+  # link and get retry_join stanzas.
+  cluster_ips =
+    begin
+      link('openbao').instances.map { |i| i.address }
+    rescue NameError
+      []
+    end
   scheme = 'https'
 -%>
 
