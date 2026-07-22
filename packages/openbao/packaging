@@ -11,6 +11,6 @@ popd
 
 # Extract OpenBao binary
 pushd openbao
-  tar -xzf openbao_2.6.0_linux_amd64.tar.gz
+  tar -xzf openbao_2.6.1_linux_amd64.tar.gz
   cp -a bao $BOSH_INSTALL_TARGET/bin
 popd

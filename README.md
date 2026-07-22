@@ -1,6 +1,6 @@
 # OpenBao BOSH Release
 
-A BOSH release for [OpenBao](https://github.com/openbao/openbao) v2.5.1 — an open-source secrets management solution forked from HashiCorp Vault.
+A BOSH release for [OpenBao](https://github.com/openbao/openbao) v2.6.1 — an open-source secrets management solution forked from HashiCorp Vault.
 
 ## Overview
 

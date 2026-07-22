@@ -1,4 +1,4 @@
-openbao/openbao_2.6.0_linux_amd64.tar.gz:
-  size: 75952530
-  object_id: 428fe4ca-265f-4201-7fbf-0e20b27bc5f6
-  sha: sha256:42d83073f2d7a28ed408840138b0312111a8d4b2f5617086f009150336dad6d4
+openbao/openbao_2.6.1_linux_amd64.tar.gz:
+  size: 75960391
+  object_id: 47c80bf4-c480-4e51-467e-d8da87a19d3f
+  sha: sha256:ca8d836eb3a5c80407e45e762300b64e7138c419e78826955f2e4ba4ce6d8a6b

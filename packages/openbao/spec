@@ -1,5 +1,5 @@
 ---
 name: openbao
 files:
-  - openbao/openbao_2.6.0_linux_amd64.tar.gz
+  - openbao/openbao_2.6.1_linux_amd64.tar.gz
   - mlock/maybe.c
