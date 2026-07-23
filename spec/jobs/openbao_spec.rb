@@ -168,6 +168,18 @@ describe 'openbao' do
       end
     end
 
+    context 'retry_join TLS servername' do
+      let(:rendered) { template.render(properties, spec: spec_node1, consumes: links_3_node) }
+
+      it 'matches the vault serving-cert SAN, not the peer-cert SAN' do
+        # leader_api_addr dials the API port (openbao.port), which presents
+        # the vault serving cert (tls/vault/cert.pem, SAN "openbao.bosh"),
+        # not the raft peer cert. leader_tls_servername must match what's
+        # actually presented there or the retry_join TLS handshake fails.
+        expect(rendered).to include('leader_tls_servername   = "openbao.bosh"')
+      end
+    end
+
     context 'cluster_addr' do
       let(:rendered) { template.render(properties, spec: spec_node1, consumes: links_3_node) }
 

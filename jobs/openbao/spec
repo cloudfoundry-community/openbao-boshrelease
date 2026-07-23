@@ -58,15 +58,18 @@ properties:
 
   openbao.peer.tls.servername:
     description: |
-      TLS server name presented when verifying the peer (leader) certificate
-      during Raft retry_join. It must match a SAN in the peer certificate,
-      since leader_api_addr uses per-instance BOSH-DNS names or IPs that the
-      shared peer certificate can never carry. The kit generates peer certs
-      with the SAN "openbao_raft_peer", which is the default. Blocs whose
-      already-deployed peer certificate carries a different SAN (for example
-      the legacy "openbao.bosh") must override this to match that SAN, or
-      rotate the peer certificate so it carries "openbao_raft_peer".
-    default: "openbao_raft_peer"
+      TLS server name presented when verifying the certificate seen during
+      Raft retry_join. leader_api_addr dials the leader's API port, which
+      presents the vault serving certificate (openbao.tls.certificate), not
+      the raft peer certificate, so this must match a SAN on the vault
+      serving cert rather than the peer cert. It cannot be a per-instance
+      BOSH-DNS name or IP, since the shared serving certificate can never
+      carry those. The kit issues vault serving certs with the SAN
+      "openbao.bosh", which is the default. Blocs whose already-deployed
+      serving certificate carries a different SAN must override this to
+      match that SAN, or rotate the serving certificate to carry
+      "openbao.bosh".
+    default: "openbao.bosh"
 
   openbao.raft.node_id:
     description: |
