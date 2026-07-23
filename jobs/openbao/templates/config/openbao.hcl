@@ -29,6 +29,7 @@ max_lease_ttl     = "<%= p('openbao.max_lease_ttl') %>"
 
 listener "tcp" {
   address         = "0.0.0.0:<%= p('openbao.port') %>"
+  cluster_address = "0.0.0.0:8201"
   tls_cert_file   = "/var/vcap/jobs/openbao/tls/vault/cert.pem"
   tls_key_file    = "/var/vcap/jobs/openbao/tls/vault/key.pem"
   tls_min_version = "tls12"

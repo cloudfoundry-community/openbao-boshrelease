@@ -174,6 +174,10 @@ describe 'openbao' do
       it 'uses port 8201 for cluster communication' do
         expect(rendered).to match(/cluster_addr\s+=\s+"https:\/\/.*:8201"/)
       end
+
+      it 'binds the cluster listener on the advertised port 8201' do
+        expect(rendered).to match(/cluster_address\s*=\s*"0\.0\.0\.0:8201"/)
+      end
     end
   end
 
