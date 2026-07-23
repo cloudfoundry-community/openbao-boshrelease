@@ -40,7 +40,7 @@ storage "raft" {
   node_id = "<%= node_id %>"
 
 <% cluster_ips.each do |ip| -%>
-<% next if ip == spec.ip -%>
+<% next if ip == spec.address -%>
   retry_join {
     leader_api_addr         = "<%= scheme %>://<%= ip %>:<%= p('openbao.port') %>"
     leader_ca_cert_file     = "/var/vcap/jobs/openbao/tls/peer/ca.pem"

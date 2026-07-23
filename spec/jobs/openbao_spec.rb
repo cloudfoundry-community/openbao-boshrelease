@@ -18,10 +18,10 @@ describe 'openbao' do
   let(:links_3_node) { make_links(3) }
   let(:links_1_node) { make_links(1) }
 
-  # Instance spec with IP matching a link instance, so the template's
-  # `next if ip == spec.ip` filter works correctly.
-  let(:spec_node1) { Bosh::Template::Test::InstanceSpec.new(ip: '10.0.0.1') }
-  let(:spec_standalone) { Bosh::Template::Test::InstanceSpec.new(ip: '10.0.0.1') }
+  # Instance spec with address matching a link instance, so the template's
+  # `next if ip == spec.address` self-exclusion filter works correctly.
+  let(:spec_node1) { Bosh::Template::Test::InstanceSpec.new(ip: '10.0.0.1', address: '10.0.0.1') }
+  let(:spec_standalone) { Bosh::Template::Test::InstanceSpec.new(ip: '10.0.0.1', address: '10.0.0.1') }
 
   # ── config/openbao.hcl ──
 
@@ -177,6 +177,44 @@ describe 'openbao' do
 
       it 'binds the cluster listener on the advertised port 8201' do
         expect(rendered).to match(/cluster_address\s*=\s*"0\.0\.0\.0:8201"/)
+      end
+    end
+
+    context 'self-exclusion with DNS-style peer addresses' do
+      # Real deployments resolve link instance addresses to BOSH-DNS names,
+      # not raw IPs (see dns/aliases.json.erb, which aliases spec.address).
+      # This mirrors that: the link and spec addresses are DNS names while
+      # spec.ip is a distinct, non-matching raw IP.
+      let(:dns_links) do
+        instances = [
+          Bosh::Template::Test::LinkInstance.new(
+            address: 'q1r2s3-abcd.openbao.default.my-deployment.bosh'
+          ),
+          Bosh::Template::Test::LinkInstance.new(
+            address: 'q4r5s6-efgh.openbao.default.my-deployment.bosh'
+          ),
+          Bosh::Template::Test::LinkInstance.new(
+            address: 'q7r8s9-ijkl.openbao.default.my-deployment.bosh'
+          )
+        ]
+        [Bosh::Template::Test::Link.new(name: 'openbao', instances: instances)]
+      end
+
+      let(:spec_dns_self) do
+        Bosh::Template::Test::InstanceSpec.new(
+          ip: '10.0.0.1',
+          address: 'q1r2s3-abcd.openbao.default.my-deployment.bosh'
+        )
+      end
+
+      let(:rendered) { template.render(properties, spec: spec_dns_self, consumes: dns_links) }
+
+      it 'excludes the local node from retry_join' do
+        expect(rendered).not_to include('q1r2s3-abcd.openbao.default.my-deployment.bosh')
+      end
+
+      it 'generates retry_join blocks for the two remaining peers' do
+        expect(rendered.scan('retry_join {').length).to eq(2)
       end
     end
   end
