@@ -27,6 +27,8 @@ cluster_addr = "https://<%= spec.ip %>:8201"
 default_lease_ttl = "<%= p('openbao.default_lease_ttl') %>"
 max_lease_ttl     = "<%= p('openbao.max_lease_ttl') %>"
 
+disable_standby_reads = <%= p('openbao.disable_standby_reads') ? 'true' : 'false' %>
+
 listener "tcp" {
   address         = "0.0.0.0:<%= p('openbao.port') %>"
   cluster_address = "0.0.0.0:8201"

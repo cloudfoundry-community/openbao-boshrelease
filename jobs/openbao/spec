@@ -98,3 +98,17 @@ properties:
   openbao.max_lease_ttl:
     description: Maximum lease TTL for tokens and secrets.
     default: "768h"
+
+  openbao.disable_standby_reads:
+    description: |
+      When true, standby nodes forward every request, reads included, to the
+      active node, so a read always observes the write before it. When false,
+      standby nodes answer read-only requests from their own copy of the Raft
+      data, which lags the active node, and a read that follows a write can
+      return the previous value unless the client sends X-Vault-Index with an
+      X-Vault-Inconsistent fallback. safe and Genesis send neither header and
+      update a secret by reading it, merging a key, and writing the whole
+      secret back, so a stale read there silently drops keys. OpenBao itself
+      defaults this to false; this release defaults it to true. OpenBao reads
+      the setting only at startup.
+    default: true

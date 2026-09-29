@@ -40,6 +40,7 @@ bosh -d openbao deploy manifests/openbao.yml \
 | `openbao.log_level` | `info` | Log level (trace, debug, info, warn, error) |
 | `openbao.default_lease_ttl` | `768h` | Default lease TTL |
 | `openbao.max_lease_ttl` | `768h` | Maximum lease TTL |
+| `openbao.disable_standby_reads` | `true` | Forward reads on standby nodes to the active node, so every read sees the write before it (OpenBao's own default is `false`) |
 | `openbao.tls.certificate` | — | TLS certificate for client communication |
 | `openbao.tls.key` | — | TLS private key for client communication |
 | `openbao.peer.tls.ca` | — | TLS CA for Raft peer verification |

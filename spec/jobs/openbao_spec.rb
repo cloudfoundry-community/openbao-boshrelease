@@ -129,6 +129,22 @@ describe 'openbao' do
       end
     end
 
+    context 'standby reads' do
+      let(:rendered) { template.render(properties, spec: spec_node1, consumes: links_3_node) }
+
+      it 'forwards standby reads to the active node by default' do
+        expect(rendered).to match(/^disable_standby_reads = true$/)
+      end
+
+      context 'when standby reads are enabled' do
+        let(:properties) { { 'openbao' => { 'disable_standby_reads' => false } } }
+
+        it 'lets standby nodes answer reads locally' do
+          expect(rendered).to match(/^disable_standby_reads = false$/)
+        end
+      end
+    end
+
     context 'standalone (1 node)' do
       let(:rendered) { template.render(properties, spec: spec_standalone, consumes: links_1_node) }
 

@@ -33,10 +33,11 @@ class LinkStub
 end
 
 class SpecStub
-  attr_reader :ip, :id
-  def initialize(ip:, id:)
+  attr_reader :ip, :id, :address
+  def initialize(ip:, id:, address: ip)
     @ip = ip
     @id = id
+    @address = address
   end
 end
 
@@ -111,6 +112,7 @@ BASE_PROPS = {
   'openbao.port' => 443,
   'openbao.default_lease_ttl' => '768h',
   'openbao.max_lease_ttl' => '768h',
+  'openbao.disable_standby_reads' => true,
   'openbao.peer.tls.use_self_signed_certs' => false,
   'openbao.peer.tls.servername' => 'openbao_raft_peer'
 }.freeze
@@ -190,8 +192,23 @@ check(failures, 'node_id is pinned by openbao.raft.node_id when set') do
     !pinned.include?('node_id = "node-1"')
 end
 
+# --- standby reads --------------------------------------------------------------
+#
+# Read-enabled standbys answer reads from a Raft copy that lags the active
+# node, so a read-merge-write client (safe, Genesis) drops keys. The release
+# forwards standby reads unless the operator opts back in.
+
+check(failures, 'disable_standby_reads renders true from the spec default') do
+  out.match?(/^disable_standby_reads = true$/)
+end
+
+reads_on = render_with(BASE_PROPS.merge('openbao.disable_standby_reads' => false))
+check(failures, 'disable_standby_reads is driven by the property') do
+  reads_on.match?(/^disable_standby_reads = false$/)
+end
+
 if failures.empty?
-  puts "\nAll 8 checks passed."
+  puts "\nAll 10 checks passed."
   exit 0
 else
   warn "\nFAILED (#{failures.length}): #{failures.join('; ')}"
