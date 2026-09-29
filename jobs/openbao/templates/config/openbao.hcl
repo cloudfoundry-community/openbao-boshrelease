@@ -16,6 +16,18 @@
   # openbao.raft.node_id to survive VM recreation.
   node_id = p('openbao.raft.node_id', '')
   node_id = spec.id if node_id.empty?
+
+  # Accept a real boolean or its string form, and fail the render on anything
+  # else, so a quoted "false" in an ops file cannot silently render as true.
+  standby_reads_setting = p('openbao.disable_standby_reads')
+  disable_standby_reads =
+    case standby_reads_setting.to_s
+    when 'true'  then true
+    when 'false' then false
+    else
+      raise ArgumentError,
+        "openbao.disable_standby_reads must be true or false, got #{standby_reads_setting.inspect}"
+    end
 -%>
 
 #disable_mlock = 1
@@ -27,7 +39,7 @@ cluster_addr = "https://<%= spec.ip %>:8201"
 default_lease_ttl = "<%= p('openbao.default_lease_ttl') %>"
 max_lease_ttl     = "<%= p('openbao.max_lease_ttl') %>"
 
-disable_standby_reads = <%= p('openbao.disable_standby_reads') ? 'true' : 'false' %>
+disable_standby_reads = <%= disable_standby_reads %>
 
 listener "tcp" {
   address         = "0.0.0.0:<%= p('openbao.port') %>"

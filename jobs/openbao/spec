@@ -109,6 +109,7 @@ properties:
       X-Vault-Inconsistent fallback. safe and Genesis send neither header and
       update a secret by reading it, merging a key, and writing the whole
       secret back, so a stale read there silently drops keys. OpenBao itself
-      defaults this to false; this release defaults it to true. OpenBao reads
-      the setting only at startup.
+      defaults this to false; this release defaults it to true. Changes take
+      effect when the job restarts. Accepts true or false, as a boolean or a
+      string; any other value fails the render.
     default: true

@@ -198,7 +198,7 @@ end
 # node, so a read-merge-write client (safe, Genesis) drops keys. The release
 # forwards standby reads unless the operator opts back in.
 
-check(failures, 'disable_standby_reads renders true from the spec default') do
+check(failures, 'disable_standby_reads renders true when the property is true') do
   out.match?(/^disable_standby_reads = true$/)
 end
 

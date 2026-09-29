@@ -67,6 +67,19 @@ bosh -d openbao ssh openbao/0 -c \
   '/var/vcap/packages/openbao/bin/bao operator raft list-peers'
 ```
 
+## Upgrading to 0.3.4
+
+This release moves OpenBao from 2.6.1 to 2.7.0 and forwards reads on standby nodes to the active node by default. Please keep three things in mind before rolling it out.
+
+- Removed engines
+  OpenBao 2.7.0 no longer builds in the LDAP, Kerberos, and RADIUS auth methods or the LDAP secrets engine. Before upgrading, run `bao auth list` and `bao secrets list` against each cluster and make sure none of them is mounted, because a node with a mount whose plugin is missing can fail to unseal.
+
+- Outage window
+  With Shamir seals, every node that BOSH restarts comes back sealed, so a rolling update of a three-node cluster loses quorum once the second node restarts. The cluster stays down until every node is unsealed again.
+
+- Unsealing with forwarded reads
+  With `disable_standby_reads` true, a single unsealed node cannot answer any authenticated request until a second node is unsealed and a leader is elected. Unseal every node with keys you already hold rather than reading the stored keys back through the first unsealed node.
+
 ## Architecture
 
 ```mermaid

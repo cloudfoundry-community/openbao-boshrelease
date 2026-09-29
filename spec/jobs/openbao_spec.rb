@@ -143,6 +143,30 @@ describe 'openbao' do
           expect(rendered).to match(/^disable_standby_reads = false$/)
         end
       end
+
+      context 'when the setting arrives as the string "false"' do
+        let(:properties) { { 'openbao' => { 'disable_standby_reads' => 'false' } } }
+
+        it 'honours the string instead of treating it as truthy' do
+          expect(rendered).to match(/^disable_standby_reads = false$/)
+        end
+      end
+
+      context 'when the setting arrives as the string "true"' do
+        let(:properties) { { 'openbao' => { 'disable_standby_reads' => 'true' } } }
+
+        it 'renders true' do
+          expect(rendered).to match(/^disable_standby_reads = true$/)
+        end
+      end
+
+      context 'when the setting is not a boolean' do
+        let(:properties) { { 'openbao' => { 'disable_standby_reads' => 'no' } } }
+
+        it 'fails the render' do
+          expect { rendered }.to raise_error(/must be true or false/)
+        end
+      end
     end
 
     context 'standalone (1 node)' do
