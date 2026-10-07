@@ -276,6 +276,40 @@ end
   end
 end
 
+{ 'trailing newline' => "#{HEX_KEY}\n", 'leading space' => " #{HEX_KEY}" }.each do |label, bad|
+  check(failures, "current_key with a #{label} fails the render") do
+    fails_with?(try_render(static_props('openbao.seal.static.current_key' => bad)), /64 hex characters or 44 base64/)
+  end
+  check(failures, "previous_key with a #{label} fails the render") do
+    fails_with?(try_render(static_props('openbao.seal.static.current_key' => HEX_KEY,
+                                        'openbao.seal.static.previous_key' => bad,
+                                        'openbao.seal.static.previous_key_id' => 'fake-prev')),
+                /64 hex characters or 44 base64/)
+  end
+end
+
+%w[current_key_id previous_key_id].each do |prop|
+  ["a\"b", "a\nb"].each do |bad|
+    check(failures, "#{prop} #{bad.inspect} fails the render") do
+      fails_with?(try_render(static_props('openbao.seal.static.current_key' => HEX_KEY,
+                                          'openbao.seal.static.previous_key' => OTHER_HEX_KEY,
+                                          'openbao.seal.static.current_key_id' => 'fake-cur',
+                                          'openbao.seal.static.previous_key_id' => 'fake-prev',
+                                          "openbao.seal.static.#{prop}" => bad)),
+                  /openbao\.seal\.static\.#{prop}/)
+    end
+  end
+end
+
+%w[current_key previous_key].each do |prop|
+  check(failures, "non-string #{prop} fails the render") do
+    fails_with?(try_render(static_props('openbao.seal.static.current_key' => HEX_KEY,
+                                        'openbao.seal.static.previous_key_id' => 'fake-prev',
+                                        "openbao.seal.static.#{prop}" => 1234)),
+                /must be a string.*quote/)
+  end
+end
+
 explicit = try_render(static_props('openbao.seal.static.current_key' => HEX_KEY,
                                    'openbao.seal.static.current_key_id' => 'fake-id-1'))
 check(failures, 'explicit id overrides the derived id') do
@@ -339,6 +373,11 @@ end
 
 check(failures, 'current.key renders exactly the key text') do
   render_key_template('current', 'openbao.seal.static.current_key' => HEX_KEY) == HEX_KEY
+end
+
+check(failures, 'valid current.key renders exactly 64 bytes with no newline') do
+  k = render_key_template('current', 'openbao.seal.static.current_key' => HEX_KEY)
+  k.bytesize == 64 && !k.include?("\n")
 end
 
 check(failures, 'previous.key renders exactly the key text') do

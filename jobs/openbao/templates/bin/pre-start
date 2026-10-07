@@ -16,12 +16,19 @@ setcap cap_net_bind_service=+ep $bin
 
 # Static seal key files are rendered root:vcap 0640; narrow them to the bao
 # user. This script also runs as the bpm pre_start hook, possibly not as
-# root, so do nothing there.
+# root, so do nothing there. In static mode a failure here must abort start
+# with a clear message; in shamir mode it must never abort.
 if [ "$(id -u)" -eq 0 ]; then
   for keyfile in ${JOB_DIR}/seal/current.key ${JOB_DIR}/seal/previous.key; do
     if [ -e "${keyfile}" ]; then
-      chown vcap:vcap "${keyfile}"
-      chmod 0600 "${keyfile}"
+      if ! { chown vcap:vcap "${keyfile}" && chmod 0600 "${keyfile}"; }; then
+        <% if p('openbao.seal.type', 'static').to_s == 'static' -%>
+        echo "pre-start: failed to set owner/mode on static seal key file ${keyfile}" >&2
+        exit 1
+        <% else -%>
+        :
+        <% end -%>
+      fi
     fi
   done
 fi

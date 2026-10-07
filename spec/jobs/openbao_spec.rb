@@ -361,6 +361,58 @@ describe 'openbao' do
         end
       end
 
+      [['trailing newline', "#{HEX_KEY}\n"], ['leading space', " #{HEX_KEY}"]].each do |label, bad|
+        context "with a current key with a #{label}" do
+          let(:static) { { 'current_key' => bad } }
+
+          it 'fails the render' do
+            expect { rendered }.to raise_error(/64 hex characters or 44 base64/)
+          end
+        end
+
+        context "with a previous key with a #{label}" do
+          let(:static) do
+            { 'current_key' => HEX_KEY, 'previous_key' => bad, 'previous_key_id' => 'fake-prev' }
+          end
+
+          it 'fails the render' do
+            expect { rendered }.to raise_error(/64 hex characters or 44 base64/)
+          end
+        end
+      end
+
+      it 'renders seal/current.key as exactly 64 bytes with no newline' do
+        key = job.template('seal/current.key').render(props, spec: spec_node1, consumes: links_3_node)
+        expect(key.bytesize).to eq(64)
+        expect(key).not_to include("\n")
+      end
+
+      [['current_key_id', "a\"b"], ['current_key_id', "a\nb"],
+       ['previous_key_id', "a\"b"], ['previous_key_id', "a\nb"]].each do |prop, bad|
+        context "with #{prop} #{bad.inspect}" do
+          let(:static) do
+            { 'current_key' => HEX_KEY, 'previous_key' => OTHER_HEX_KEY,
+              'current_key_id' => 'fake-cur', 'previous_key_id' => 'fake-prev', prop => bad }
+          end
+
+          it 'fails the render naming the property' do
+            expect { rendered }.to raise_error(ArgumentError, /openbao\.seal\.static\.#{prop}/)
+          end
+        end
+      end
+
+      [['current_key', 1234], ['previous_key', 1234]].each do |prop, bad|
+        context "with a non-string #{prop}" do
+          let(:static) do
+            { 'current_key' => HEX_KEY, 'previous_key_id' => 'fake-prev', prop => bad }
+          end
+
+          it 'fails the render asking for a quoted string' do
+            expect { rendered }.to raise_error(ArgumentError, /must be a string.*quote/)
+          end
+        end
+      end
+
       context 'with an explicit key id' do
         let(:static) { { 'current_key' => HEX_KEY, 'current_key_id' => 'fake-id-1' } }
 

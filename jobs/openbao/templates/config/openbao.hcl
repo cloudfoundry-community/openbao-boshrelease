@@ -40,10 +40,21 @@
       "openbao.seal.type must be static or shamir, got #{p('openbao.seal.type', 'static').inspect}"
   end
 
-  seal_current_key     = p('openbao.seal.static.current_key', '').to_s
-  seal_current_key_id  = p('openbao.seal.static.current_key_id', '').to_s
-  seal_previous_key    = p('openbao.seal.static.previous_key', '').to_s
-  seal_previous_key_id = p('openbao.seal.static.previous_key_id', '').to_s
+  # A YAML scalar such as an all-digit hex key arrives as an Integer, and
+  # .to_s would drop leading zeros, so refuse anything that is not a String.
+  seal_string = lambda do |name, default|
+    value = p(name, default)
+    unless value.is_a?(String)
+      raise ArgumentError,
+        "#{name} must be a string, got #{value.class} (#{value.inspect}); quote the value in the manifest"
+    end
+    value
+  end
+
+  seal_current_key     = seal_string.call('openbao.seal.static.current_key', '')
+  seal_current_key_id  = seal_string.call('openbao.seal.static.current_key_id', '')
+  seal_previous_key    = seal_string.call('openbao.seal.static.previous_key', '')
+  seal_previous_key_id = seal_string.call('openbao.seal.static.previous_key_id', '')
   seal_disabled_raw    = p('openbao.seal.static.disabled', false)
   seal_disabled =
     case seal_disabled_raw.to_s
@@ -95,6 +106,15 @@
         "Set openbao.seal.static.current_key, or set openbao.seal.type: shamir to keep " \
         "manual Shamir unsealing. Adding a key to an already initialized Shamir cluster " \
         "starts a seal migration; see 'Upgrading to 0.4.0' in the README."
+    end
+
+    [['openbao.seal.static.current_key_id', seal_current_key_id],
+     ['openbao.seal.static.previous_key_id', seal_previous_key_id]].each do |name, id|
+      next if id.empty?
+      unless id.match?(/\A[A-Za-z0-9._:-]{1,128}\z/)
+        raise ArgumentError,
+          "#{name} must match [A-Za-z0-9._:-]{1,128}, got #{id.inspect}"
+      end
     end
 
     current_bytes = decode_seal_key.call('openbao.seal.static.current_key', seal_current_key)
