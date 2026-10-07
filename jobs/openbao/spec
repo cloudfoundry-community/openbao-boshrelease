@@ -131,8 +131,9 @@ properties:
   openbao.seal.static.current_key:
     description: |
       Current static seal key, as 64 hex characters or as 44 base64
-      characters that decode to 32 bytes. Raw 32-byte keys are rejected,
-      because the key file is read with surrounding whitespace trimmed.
+      characters that decode to 32 bytes. Raw 32-byte keys and keys with
+      any whitespace are rejected, because OpenBao reads the key file
+      exactly as written and does not trim it.
       Required when openbao.seal.type is static.
 
   openbao.seal.static.current_key_id:
