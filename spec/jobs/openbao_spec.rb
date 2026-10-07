@@ -23,13 +23,32 @@ describe 'openbao' do
   let(:spec_node1) { Bosh::Template::Test::InstanceSpec.new(ip: '10.0.0.1', address: '10.0.0.1') }
   let(:spec_standalone) { Bosh::Template::Test::InstanceSpec.new(ip: '10.0.0.1', address: '10.0.0.1') }
 
+  # The release defaults to a static seal and fails closed without a key, so
+  # the pre-existing cases render with the Shamir seal unless they say otherwise.
+  def shamir(props)
+    deep = Marshal.load(Marshal.dump(props))
+    deep['openbao'] ||= {}
+    deep['openbao']['seal'] ||= {}
+    deep['openbao']['seal']['type'] ||= 'shamir'
+    deep
+  end
+
+  def seal_props(static, type: 'static')
+    { 'openbao' => { 'seal' => { 'type' => type, 'static' => static } } }
+  end
+
+  # Obviously fake keys: the byte 0x0a repeated 32 times.
+  HEX_KEY = ('0a' * 32).freeze
+  B64_KEY = ["\x0a".b * 32].pack('m0').freeze
+  OTHER_HEX_KEY = ('0b' * 32).freeze
+
   # ── config/openbao.hcl ──
 
   context 'config/openbao.hcl' do
     let(:template) { job.template('config/openbao.hcl') }
 
     context 'with defaults and 3-node cluster' do
-      let(:rendered) { template.render(properties, spec: spec_node1, consumes: links_3_node) }
+      let(:rendered) { template.render(shamir(properties), spec: spec_node1, consumes: links_3_node) }
 
       it 'binds to port 443' do
         expect(rendered).to include('0.0.0.0:443')
@@ -90,7 +109,7 @@ describe 'openbao' do
 
     context 'with custom port' do
       let(:properties) { { 'openbao' => { 'port' => 8200 } } }
-      let(:rendered) { template.render(properties, spec: spec_node1, consumes: links_3_node) }
+      let(:rendered) { template.render(shamir(properties), spec: spec_node1, consumes: links_3_node) }
 
       it 'binds to custom port in listener' do
         expect(rendered).to include('0.0.0.0:8200')
@@ -107,7 +126,7 @@ describe 'openbao' do
 
     context 'with UI enabled' do
       let(:properties) { { 'openbao' => { 'ui' => true } } }
-      let(:rendered) { template.render(properties, spec: spec_node1, consumes: links_3_node) }
+      let(:rendered) { template.render(shamir(properties), spec: spec_node1, consumes: links_3_node) }
 
       it 'enables ui' do
         expect(rendered).to include('ui = true')
@@ -118,7 +137,7 @@ describe 'openbao' do
       let(:properties) do
         { 'openbao' => { 'default_lease_ttl' => '24h', 'max_lease_ttl' => '24h' } }
       end
-      let(:rendered) { template.render(properties, spec: spec_node1, consumes: links_3_node) }
+      let(:rendered) { template.render(shamir(properties), spec: spec_node1, consumes: links_3_node) }
 
       it 'sets custom default lease TTL' do
         expect(rendered).to include('default_lease_ttl = "24h"')
@@ -130,7 +149,7 @@ describe 'openbao' do
     end
 
     context 'standby reads' do
-      let(:rendered) { template.render(properties, spec: spec_node1, consumes: links_3_node) }
+      let(:rendered) { template.render(shamir(properties), spec: spec_node1, consumes: links_3_node) }
 
       it 'forwards standby reads to the active node by default' do
         expect(rendered).to match(/^disable_standby_reads = true$/)
@@ -170,7 +189,7 @@ describe 'openbao' do
     end
 
     context 'standalone (1 node)' do
-      let(:rendered) { template.render(properties, spec: spec_standalone, consumes: links_1_node) }
+      let(:rendered) { template.render(shamir(properties), spec: spec_standalone, consumes: links_1_node) }
 
       it 'generates zero retry_join blocks' do
         expect(rendered).not_to include('retry_join')
@@ -181,7 +200,7 @@ describe 'openbao' do
       let(:properties) do
         { 'openbao' => { 'peer' => { 'tls' => { 'use_self_signed_certs' => true } } } }
       end
-      let(:rendered) { template.render(properties, spec: spec_node1, consumes: links_3_node) }
+      let(:rendered) { template.render(shamir(properties), spec: spec_node1, consumes: links_3_node) }
 
       it 'omits leader_client_cert_file from retry_join' do
         expect(rendered).not_to include('leader_client_cert_file')
@@ -197,7 +216,7 @@ describe 'openbao' do
     end
 
     context 'with operator peer certs (default)' do
-      let(:rendered) { template.render(properties, spec: spec_node1, consumes: links_3_node) }
+      let(:rendered) { template.render(shamir(properties), spec: spec_node1, consumes: links_3_node) }
 
       it 'includes leader_client_cert_file' do
         expect(rendered).to include('leader_client_cert_file = "/var/vcap/jobs/openbao/tls/peer/cert.pem"')
@@ -209,7 +228,7 @@ describe 'openbao' do
     end
 
     context 'retry_join TLS servername' do
-      let(:rendered) { template.render(properties, spec: spec_node1, consumes: links_3_node) }
+      let(:rendered) { template.render(shamir(properties), spec: spec_node1, consumes: links_3_node) }
 
       it 'matches the vault serving-cert SAN, not the peer-cert SAN' do
         # leader_api_addr dials the API port (openbao.port), which presents
@@ -221,7 +240,7 @@ describe 'openbao' do
     end
 
     context 'cluster_addr' do
-      let(:rendered) { template.render(properties, spec: spec_node1, consumes: links_3_node) }
+      let(:rendered) { template.render(shamir(properties), spec: spec_node1, consumes: links_3_node) }
 
       it 'uses port 8201 for cluster communication' do
         expect(rendered).to match(/cluster_addr\s+=\s+"https:\/\/.*:8201"/)
@@ -259,7 +278,7 @@ describe 'openbao' do
         )
       end
 
-      let(:rendered) { template.render(properties, spec: spec_dns_self, consumes: dns_links) }
+      let(:rendered) { template.render(shamir(properties), spec: spec_dns_self, consumes: dns_links) }
 
       it 'excludes the local node from retry_join' do
         expect(rendered).not_to include('q1r2s3-abcd.openbao.default.my-deployment.bosh')
@@ -267,6 +286,168 @@ describe 'openbao' do
 
       it 'generates retry_join blocks for the two remaining peers' do
         expect(rendered.scan('retry_join {').length).to eq(2)
+      end
+    end
+
+    context 'static seal' do
+      let(:template) { job.template('config/openbao.hcl') }
+      let(:static) { { 'current_key' => HEX_KEY } }
+      let(:props) { seal_props(static) }
+      let(:rendered) { template.render(props, spec: spec_node1, consumes: links_3_node) }
+
+      it 'fails closed by default when no key is given' do
+        expect { template.render({}, spec: spec_node1, consumes: links_3_node) }
+          .to raise_error(/openbao\.seal\.type: shamir/)
+      end
+
+      it 'renders no seal block and no key id with shamir' do
+        out = template.render(seal_props({}, type: 'shamir'), spec: spec_node1, consumes: links_3_node)
+        expect(out).not_to include('seal "')
+        expect(out).not_to include('current_key')
+      end
+
+      it 'rejects an unknown seal type' do
+        expect { template.render(seal_props({}, type: 'transit'), spec: spec_node1, consumes: links_3_node) }
+          .to raise_error(/must be static or shamir/)
+      end
+
+      it 'renders a static stanza pointing at the job-dir key file' do
+        expect(rendered).to include('seal "static" {')
+        expect(rendered).to include('current_key    = "file:///var/vcap/jobs/openbao/seal/current.key"')
+      end
+
+      it 'derives the key id from the decoded key bytes (fixed vector)' do
+        expect(rendered).to include('current_key_id = "sha256-b9b07dd4e7718454"')
+      end
+
+      it 'does not render the key material into the config' do
+        expect(rendered).not_to include(HEX_KEY)
+      end
+
+      it 'omits previous key and disabled lines by default' do
+        expect(rendered).not_to include('previous_key')
+        expect(rendered).not_to include('disabled = "true"')
+      end
+
+      context 'with a base64 key for the same bytes' do
+        let(:static) { { 'current_key' => B64_KEY } }
+
+        it 'derives the same id as the hex key' do
+          expect(rendered).to include('current_key_id = "sha256-b9b07dd4e7718454"')
+        end
+      end
+
+      context 'with a raw 32-byte key' do
+        let(:static) { { 'current_key' => 'k' * 32 } }
+
+        it 'fails the render' do
+          expect { rendered }.to raise_error(/64 hex characters or 44 base64/)
+        end
+      end
+
+      context 'with a key of the wrong length' do
+        let(:static) { { 'current_key' => '0a' * 31 } }
+
+        it 'fails the render' do
+          expect { rendered }.to raise_error(/64 hex characters or 44 base64/)
+        end
+      end
+
+      context 'with a non-hex 64-character key' do
+        let(:static) { { 'current_key' => 'zz' * 32 } }
+
+        it 'fails the render' do
+          expect { rendered }.to raise_error(/64 hex characters or 44 base64/)
+        end
+      end
+
+      context 'with an explicit key id' do
+        let(:static) { { 'current_key' => HEX_KEY, 'current_key_id' => 'fake-id-1' } }
+
+        it 'overrides the derived id' do
+          expect(rendered).to include('current_key_id = "fake-id-1"')
+          expect(rendered).not_to include('sha256-')
+        end
+      end
+
+      context 'with a previous key and id' do
+        let(:static) do
+          { 'current_key' => HEX_KEY, 'previous_key' => OTHER_HEX_KEY, 'previous_key_id' => 'fake-prev' }
+        end
+
+        it 'renders the previous key stanza lines' do
+          expect(rendered).to include('previous_key_id = "fake-prev"')
+          expect(rendered).to include('previous_key    = "file:///var/vcap/jobs/openbao/seal/previous.key"')
+        end
+      end
+
+      context 'with a previous key and no previous id' do
+        let(:static) { { 'current_key' => HEX_KEY, 'previous_key' => OTHER_HEX_KEY } }
+
+        it 'fails the render' do
+          expect { rendered }.to raise_error(/previous_key_id.*together|together/)
+        end
+      end
+
+      context 'with a previous id and no previous key' do
+        let(:static) { { 'current_key' => HEX_KEY, 'previous_key_id' => 'fake-prev' } }
+
+        it 'fails the render' do
+          expect { rendered }.to raise_error(/together/)
+        end
+      end
+
+      context 'with the same key material under different ids' do
+        let(:static) do
+          { 'current_key' => HEX_KEY, 'current_key_id' => 'id-a', 'previous_key' => B64_KEY, 'previous_key_id' => 'id-b' }
+        end
+
+        it 'fails the render' do
+          expect { rendered }.to raise_error(/same key under different ids/)
+        end
+      end
+
+      context 'with different key material under the same id' do
+        let(:static) do
+          { 'current_key' => HEX_KEY, 'current_key_id' => 'id-a', 'previous_key' => OTHER_HEX_KEY, 'previous_key_id' => 'id-a' }
+        end
+
+        it 'fails the render' do
+          expect { rendered }.to raise_error(/different keys under the same id/)
+        end
+      end
+
+      context 'with disabled set' do
+        let(:static) { { 'current_key' => HEX_KEY, 'disabled' => true } }
+
+        it 'renders disabled = "true"' do
+          expect(rendered).to include('disabled = "true"')
+        end
+      end
+
+      context 'with a static value set while the type is shamir' do
+        it 'fails the render for a key' do
+          props = seal_props({ 'current_key' => HEX_KEY }, type: 'shamir')
+          expect { template.render(props, spec: spec_node1, consumes: links_3_node) }
+            .to raise_error(/openbao\.seal\.type is shamir/)
+        end
+
+        it 'fails the render for disabled' do
+          props = seal_props({ 'disabled' => true }, type: 'shamir')
+          expect { template.render(props, spec: spec_node1, consumes: links_3_node) }
+            .to raise_error(/openbao\.seal\.type is shamir/)
+        end
+      end
+
+      # bosh-template's test harness always supplies link(), so the true
+      # no-link create-env path is covered in spec/config/openbao_hcl_test.rb.
+      # Here a single-node link stands in: the stanza renders with no peers.
+      context 'with no peers to join' do
+        it 'still renders the static stanza and no retry_join' do
+          out = template.render(props, spec: spec_standalone, consumes: links_1_node)
+          expect(out).to include('seal "static" {')
+          expect(out).not_to include('retry_join')
+        end
       end
     end
   end
@@ -310,12 +491,39 @@ describe 'openbao' do
       end
     end
 
+    context 'with a static seal key' do
+      let(:rendered) { template.render(seal_props({ 'current_key' => HEX_KEY })) }
+
+      it 'sets no BAO_STATIC_SEAL variables' do
+        expect(rendered).not_to include('BAO_STATIC_SEAL')
+      end
+    end
+
     context 'with custom log level' do
       let(:properties) { { 'openbao' => { 'log_level' => 'debug' } } }
       let(:rendered) { template.render(properties) }
 
       it 'sets custom log level' do
         expect(rendered).to include('BAO_LOG_LEVEL: debug')
+      end
+    end
+  end
+
+  # ── seal key templates ──
+
+  context 'seal key templates' do
+    %w[current previous].each do |which|
+      context "seal/#{which}.key" do
+        let(:template) { job.template("seal/#{which}.key") }
+
+        it 'renders empty when no key is provided' do
+          expect(template.render(properties)).to eq('')
+        end
+
+        it 'renders exactly the key text' do
+          props = seal_props({ "#{which}_key" => HEX_KEY })
+          expect(template.render(props)).to eq(HEX_KEY)
+        end
       end
     end
   end

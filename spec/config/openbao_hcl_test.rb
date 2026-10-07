@@ -114,13 +114,16 @@ BASE_PROPS = {
   'openbao.max_lease_ttl' => '768h',
   'openbao.disable_standby_reads' => true,
   'openbao.peer.tls.use_self_signed_certs' => false,
-  'openbao.peer.tls.servername' => 'openbao_raft_peer'
+  'openbao.peer.tls.servername' => 'openbao_raft_peer',
+  'openbao.seal.type' => 'shamir'
 }.freeze
 
 # --- assertions --------------------------------------------------------------
 
 failures = []
+$checks_run = 0
 def check(failures, desc)
+  $checks_run += 1
   ok = yield
   puts(ok ? "ok - #{desc}" : "not ok - #{desc}")
   failures << desc unless ok
@@ -207,8 +210,152 @@ check(failures, 'disable_standby_reads is driven by the property') do
   reads_on.match?(/^disable_standby_reads = false$/)
 end
 
+# --- static seal -------------------------------------------------------------
+#
+# The release defaults to a static seal and fails closed without a key. Keys
+# below are obviously fake: the byte 0x0a repeated 32 times.
+
+HEX_KEY = ('0a' * 32).freeze
+B64_KEY = (["\x0a".b * 32].pack('m0')).freeze
+OTHER_HEX_KEY = ('0b' * 32).freeze
+DERIVED_ID = 'sha256-b9b07dd4e7718454' # first 16 hex of sha256 of the 32 key bytes
+
+def static_props(extra = {})
+  BASE_PROPS.merge('openbao.seal.type' => 'static').merge(extra)
+end
+
+# Returns the rendered string, or the raised error.
+def try_render(props, create_env: false)
+  create_env ? render_create_env(props) : render_with(props)
+rescue StandardError => e
+  e
+end
+
+def fails_with?(result, pattern)
+  result.is_a?(StandardError) && result.message.match?(pattern)
+end
+
+check(failures, 'static seal with no key fails and names openbao.seal.type: shamir') do
+  fails_with?(try_render(static_props), /openbao\.seal\.type: shamir/)
+end
+
+check(failures, 'shamir renders no seal block') do
+  !out.include?('seal "')
+end
+
+check(failures, 'unknown seal type fails') do
+  fails_with?(try_render(BASE_PROPS.merge('openbao.seal.type' => 'transit')), /must be static or shamir/)
+end
+
+hex_out = try_render(static_props('openbao.seal.static.current_key' => HEX_KEY))
+check(failures, 'static with a hex key renders a seal "static" block at the job-dir file') do
+  hex_out.is_a?(String) && hex_out.include?('seal "static" {') &&
+    hex_out.include?('current_key    = "file:///var/vcap/jobs/openbao/seal/current.key"')
+end
+
+check(failures, 'derived id matches the fixed test vector') do
+  hex_out.is_a?(String) && hex_out.include?(%(current_key_id = "#{DERIVED_ID}"))
+end
+
+check(failures, 'key material never appears in the config') do
+  hex_out.is_a?(String) && !hex_out.include?(HEX_KEY)
+end
+
+b64_out = try_render(static_props('openbao.seal.static.current_key' => B64_KEY))
+check(failures, 'base64 and hex keys for the same bytes derive the same id') do
+  b64_out.is_a?(String) && b64_out.include?(%(current_key_id = "#{DERIVED_ID}"))
+end
+
+{
+  'raw 32-byte key' => 'k' * 32,
+  'wrong-length key' => '0a' * 31,
+  'non-hex 64-character key' => 'zz' * 32
+}.each do |label, key|
+  check(failures, "#{label} fails the render") do
+    fails_with?(try_render(static_props('openbao.seal.static.current_key' => key)), /64 hex characters or 44 base64/)
+  end
+end
+
+explicit = try_render(static_props('openbao.seal.static.current_key' => HEX_KEY,
+                                   'openbao.seal.static.current_key_id' => 'fake-id-1'))
+check(failures, 'explicit id overrides the derived id') do
+  explicit.is_a?(String) && explicit.include?('current_key_id = "fake-id-1"') &&
+    !explicit.include?('sha256-')
+end
+
+rotation = try_render(static_props('openbao.seal.static.current_key' => HEX_KEY,
+                                   'openbao.seal.static.previous_key' => OTHER_HEX_KEY,
+                                   'openbao.seal.static.previous_key_id' => 'fake-prev'))
+check(failures, 'previous key and id render the previous stanza lines') do
+  rotation.is_a?(String) && rotation.include?('previous_key_id = "fake-prev"') &&
+    rotation.include?('previous_key    = "file:///var/vcap/jobs/openbao/seal/previous.key"')
+end
+
+check(failures, 'previous key without previous id fails') do
+  fails_with?(try_render(static_props('openbao.seal.static.current_key' => HEX_KEY,
+                                      'openbao.seal.static.previous_key' => OTHER_HEX_KEY)), /together/)
+end
+
+check(failures, 'same material under different ids fails') do
+  fails_with?(try_render(static_props('openbao.seal.static.current_key' => HEX_KEY,
+                                      'openbao.seal.static.current_key_id' => 'id-a',
+                                      'openbao.seal.static.previous_key' => B64_KEY,
+                                      'openbao.seal.static.previous_key_id' => 'id-b')),
+              /same key under different ids/)
+end
+
+check(failures, 'different material under the same id fails') do
+  fails_with?(try_render(static_props('openbao.seal.static.current_key' => HEX_KEY,
+                                      'openbao.seal.static.current_key_id' => 'id-a',
+                                      'openbao.seal.static.previous_key' => OTHER_HEX_KEY,
+                                      'openbao.seal.static.previous_key_id' => 'id-a')),
+              /different keys under the same id/)
+end
+
+disabled = try_render(static_props('openbao.seal.static.current_key' => HEX_KEY,
+                                   'openbao.seal.static.disabled' => true))
+check(failures, 'disabled renders disabled = "true"') do
+  disabled.is_a?(String) && disabled.include?('disabled = "true"')
+end
+
+check(failures, 'disabled with type shamir fails') do
+  fails_with?(try_render(BASE_PROPS.merge('openbao.seal.static.disabled' => true)), /openbao\.seal\.type is shamir/)
+end
+
+check(failures, 'a static key with type shamir fails') do
+  fails_with?(try_render(BASE_PROPS.merge('openbao.seal.static.current_key' => HEX_KEY)), /openbao\.seal\.type is shamir/)
+end
+
+ce_static = try_render(static_props('openbao.seal.static.current_key' => HEX_KEY), create_env: true)
+check(failures, 'create-env (no link) still renders the static stanza and no retry_join') do
+  ce_static.is_a?(String) && ce_static.include?('seal "static" {') && !ce_static.include?('retry_join')
+end
+
+# The key templates are plain ERB that render the key text and nothing else.
+def render_key_template(name, properties)
+  path = File.expand_path("../../jobs/openbao/templates/seal/#{name}.key", __dir__)
+  RenderContext.new(properties: properties, links: {}, spec: SpecStub.new(ip: '10.0.0.4', id: 'x')).render(path)
+end
+
+check(failures, 'current.key renders exactly the key text') do
+  render_key_template('current', 'openbao.seal.static.current_key' => HEX_KEY) == HEX_KEY
+end
+
+check(failures, 'previous.key renders exactly the key text') do
+  render_key_template('previous', 'openbao.seal.static.previous_key' => OTHER_HEX_KEY) == OTHER_HEX_KEY
+end
+
+check(failures, 'key templates render empty when no key is set') do
+  render_key_template('current', {}).empty? && render_key_template('previous', {}).empty?
+end
+
+bpm = File.read(File.expand_path('../../jobs/openbao/templates/config/bpm.yml', __dir__))
+check(failures, 'bpm.yml sets no BAO_STATIC_SEAL variables') do
+  !bpm.include?('BAO_STATIC_SEAL')
+end
+
 if failures.empty?
-  puts "\nAll 10 checks passed."
+  puts "\nAll #{$checks_run} checks passed."
   exit 0
 else
   warn "\nFAILED (#{failures.length}): #{failures.join('; ')}"
