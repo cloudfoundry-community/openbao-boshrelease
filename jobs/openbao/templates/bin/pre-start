@@ -20,7 +20,7 @@ setcap cap_net_bind_service=+ep $bin
 # with a clear message; in shamir mode it must never abort.
 if [ "$(id -u)" -eq 0 ]; then
   for keyfile in ${JOB_DIR}/seal/current.key ${JOB_DIR}/seal/previous.key; do
-    if [ -e "${keyfile}" ]; then
+    if [ -e "${keyfile}" ] && [ "$(stat -c '%U:%G %a' "${keyfile}")" != "vcap:vcap 600" ]; then
       if ! { chown vcap:vcap "${keyfile}" && chmod 0600 "${keyfile}"; }; then
         <% if p('openbao.seal.type', 'static').to_s == 'static' -%>
         echo "pre-start: failed to set owner/mode on static seal key file ${keyfile}" >&2
