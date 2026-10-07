@@ -14,6 +14,18 @@ bin=$(readlink -nf /var/vcap/packages/openbao/bin/bao)
 setcap cap_ipc_lock=+ep         $bin
 setcap cap_net_bind_service=+ep $bin
 
+# Static seal key files are rendered root:vcap 0640; narrow them to the bao
+# user. This script also runs as the bpm pre_start hook, possibly not as
+# root, so do nothing there.
+if [ "$(id -u)" -eq 0 ]; then
+  for keyfile in ${JOB_DIR}/seal/current.key ${JOB_DIR}/seal/previous.key; do
+    if [ -e "${keyfile}" ]; then
+      chown vcap:vcap "${keyfile}"
+      chmod 0600 "${keyfile}"
+    fi
+  done
+fi
+
 # Runtime mlock detection
 if chpst -u vcap:vcap /var/vcap/packages/openbao/bin/canimlock; then
   sed -i -e 's/^disable_mlock/#disable_mlock/' \

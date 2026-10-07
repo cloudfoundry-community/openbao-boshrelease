@@ -17,6 +17,8 @@ instance_groups:
           openbao:
             port: 443
             ui: false
+            seal:
+              type: shamir
 
       - name: bpm
         release: bpm

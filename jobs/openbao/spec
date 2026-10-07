@@ -9,6 +9,9 @@ templates:
   config/bpm.yml: config/bpm.yml
   config/openbao.hcl: config/openbao.hcl
 
+  seal/current.key: seal/current.key
+  seal/previous.key: seal/previous.key
+
   tls/vault/cert.pem: tls/vault/cert.pem
   tls/vault/key.pem: tls/vault/key.pem
 
@@ -113,3 +116,47 @@ properties:
       effect when the job restarts. Accepts true or false, as a boolean or a
       string; any other value fails the render.
     default: true
+
+  openbao.seal.type:
+    description: |
+      How OpenBao is unsealed. "static" unseals automatically from a key
+      file rendered into the job directory, and the render fails closed when
+      no key is given. "shamir" keeps manual unsealing with Shamir shares and
+      renders no seal stanza. Any other value fails the render. Existing
+      Shamir deployments must set this to "shamir" when they upgrade to
+      0.4.0; adding a static key to an already initialized Shamir cluster
+      starts a seal migration, which the README describes.
+    default: static
+
+  openbao.seal.static.current_key:
+    description: |
+      Current static seal key, as 64 hex characters or as 44 base64
+      characters that decode to 32 bytes. Raw 32-byte keys are rejected,
+      because the key file is read with surrounding whitespace trimmed.
+      Required when openbao.seal.type is static.
+
+  openbao.seal.static.current_key_id:
+    description: |
+      Optional identifier stored with every blob the current key encrypts.
+      When empty, the id is derived as "sha256-" followed by the first 16
+      hex characters of the SHA-256 of the decoded key bytes. That scheme is
+      frozen once shipped, because stored blobs carry the id.
+    default: ""
+
+  openbao.seal.static.previous_key:
+    description: |
+      Previous static seal key, in the same formats as current_key. Set only
+      during rotation, together with previous_key_id.
+
+  openbao.seal.static.previous_key_id:
+    description: |
+      Identifier of the previous key. Required whenever previous_key is set,
+      and rejected when previous_key is empty.
+    default: ""
+
+  openbao.seal.static.disabled:
+    description: |
+      When true, the static stanza renders disabled = "true", which is how
+      OpenBao migrates from a static seal back to Shamir. Accepts true or
+      false, as a boolean or a string.
+    default: false
