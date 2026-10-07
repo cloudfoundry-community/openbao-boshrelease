@@ -77,7 +77,7 @@ bosh -d openbao ssh openbao/0 -c \
 
 This release adds a static seal, and it makes `static` the default seal type. A static seal means OpenBao unseals itself from a key file at every start, so a reboot no longer needs anyone to type Shamir shares. The release fails closed, which means the render stops with an error when the type is `static` and no key is given. Nothing can turn an existing cluster into a static one by accident.
 
-Every existing Shamir deployment has to add one line before it upgrades, which is `openbao.seal.type: shamir`. With that line the job renders no seal stanza and behaves exactly as it did in 0.3.5. While the type is `shamir`, setting any `openbao.seal.static.*` property fails the render, so a stray key cannot slip in.
+Before it upgrades, every existing Shamir deployment has to add one line, `openbao.seal.type: shamir`. With that line the job renders no seal stanza and behaves exactly as it did in 0.3.5. While the type is `shamir`, setting any `openbao.seal.static.*` property fails the render, so a stray key cannot slip in.
 
 Before we choose static, we should be honest about the trade. The key sits on the same VM as the data it protects, so anyone with root on the instance, or with a copy of its disk or backup, has both the ciphertext and the key. Shamir needed several people to cooperate, and a static seal does not.
 
@@ -89,7 +89,7 @@ Now we run the unseal command once on each instance with the `-migrate` flag, pr
 
 ### Rotating the static key
 
-To rotate, we generate a new key and deploy with the new key as `current_key` and the old one as `previous_key`, along with `previous_key_id`. The previous id is the one the old key had, which is `sha256-` and the first 16 hex characters of its hash unless we set an id by hand. After the deploy, OpenBao re-wraps its stored keys under the new key at the next unseal, and the log should show no `post-unseal upgrade seal keys failed` warning. Once that is confirmed on every instance, we remove `previous_key` and `previous_key_id` and deploy again.
+To rotate, we generate a new key and deploy with the new key as `current_key` and the old one as `previous_key`, along with `previous_key_id`. The previous id is the one the old key had, so unless we set an id by hand, it is `sha256-` followed by the first 16 hex characters of its hash. After the deploy, OpenBao re-wraps its stored keys under the new key at the next unseal, and the log should show no `post-unseal upgrade seal keys failed` warning. Once that is confirmed on every instance, we remove `previous_key` and `previous_key_id` and deploy again.
 
 The release refuses a rotation where the previous and current keys are the same bytes under different ids, or different bytes under the same id, because OpenBao would reject that at unseal time.
 
