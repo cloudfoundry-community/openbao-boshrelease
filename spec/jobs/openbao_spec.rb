@@ -684,4 +684,15 @@ describe 'openbao' do
       end
     end
   end
+
+  describe 'bin/pre-start' do
+    let(:rendered) do
+      job.template('bin/pre-start').render(shamir(properties), spec: spec_node1, consumes: links_1_node)
+    end
+
+    it 'drops privileges with setpriv rather than chpst' do
+      expect(rendered).to include('setpriv --reuid=vcap --regid=vcap --groups=vcap -- /var/vcap/packages/openbao/bin/canimlock')
+      expect(rendered).not_to include('chpst')
+    end
+  end
 end

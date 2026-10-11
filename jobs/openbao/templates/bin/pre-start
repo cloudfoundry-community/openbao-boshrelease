@@ -34,7 +34,7 @@ if [ "$(id -u)" -eq 0 ]; then
 fi
 
 # Runtime mlock detection
-if chpst -u vcap:vcap /var/vcap/packages/openbao/bin/canimlock; then
+if setpriv --reuid=vcap --regid=vcap --groups=vcap -- /var/vcap/packages/openbao/bin/canimlock; then
   sed -i -e 's/^disable_mlock/#disable_mlock/' \
     ${JOB_DIR}/config/openbao.hcl
 else
